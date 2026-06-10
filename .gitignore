@@ -20,6 +20,22 @@ staticfiles/
 mediafiles/
 *.sqlite3
 
+# Logs
+*.log
+
+# Dev / debug / seed scripts (local only)
+seed_*.py
+create_dbs.py
+check_db.py
+list_dbs.py
+debug_*.py
+
+# AI assistant context
+CLAUDE.md
+AGENTS.md
+.agent/
+.claude/
+
 # Docker
 .dockerignore
 
