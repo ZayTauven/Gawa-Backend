@@ -154,8 +154,29 @@ class ResourceClassScopingTests(APITestCase):
             "title": "Ressource libre", "type": "LINK", "status": "UNLOCKED",
             "target_audiences": ["STUDENT"], "url": "https://example.com/x",
         }
-        res = self.client.post(
-            "/api/v1/pcs/resources/", payload, format="json",
-            HTTP_X_SCHOOL_ID=str(self.school.id),
-        )
+        res = self.client.post("/api/v1/pcs/resources/", payload, format="json")
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_standalone_resource_flow(self):
+        # Le prof partage une ressource autonome ciblant la 6ème.
+        self.client.force_authenticate(user=self.teacher)
+        payload = {
+            "classroom": str(self.room_6.id), "title": "Fiche méthode 6ème",
+            "type": "LINK", "status": "UNLOCKED", "category": "APPROFONDISSEMENT",
+            "target_audiences": ["STUDENT"], "url": "https://example.com/fiche",
+        }
+        created = self.client.post("/api/v1/pcs/resources/", payload, format="json")
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        # Le prof la retrouve dans SES ressources (auteur).
+        listed = self.client.get("/api/v1/pcs/resources/")
+        self.assertIn("Fiche méthode 6ème", [r["title"] for r in listed.data])
+
+        # Cloisonnement : 6ème la voit, 4ème non.
+        self.client.force_authenticate(user=self.student_6)
+        s6 = self.client.get("/api/v1/pcs/resources/")
+        self.assertIn("Fiche méthode 6ème", [r["title"] for r in s6.data])
+
+        self.client.force_authenticate(user=self.student_4)
+        s4 = self.client.get("/api/v1/pcs/resources/")
+        self.assertNotIn("Fiche méthode 6ème", [r["title"] for r in s4.data])
