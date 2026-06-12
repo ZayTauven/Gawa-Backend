@@ -74,6 +74,9 @@ class ExamApiTests(APITestCase):
             type="TEXT",
             url="",
             status="UNLOCKED",
+            # Hibou ne peut exploiter qu'une ressource certifiée (cf. règle ai_eligible).
+            document_class="PEDAGOGICAL_RESTRICTED",
+            ai_eligible=True,
         )
 
         question = Question.objects.create(

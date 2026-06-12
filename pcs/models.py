@@ -43,6 +43,13 @@ class Resource(models.Model):
         ('TEXT', 'Rich Text'),
         ('IMAGE', 'Image'),
     )
+    CATEGORY_CHOICES = (
+        ('ANNALES', 'Annales'),
+        ('CORRECTION', 'Corrigé'),
+        ('NOTES', 'Notes de cours'),
+        ('APPROFONDISSEMENT', 'Approfondissement'),
+        ('OTHER', 'Autre'),
+    )
     STATUS_CHOICES = (
         ('LOCKED', 'Locked'),
         ('UNLOCKED', 'Unlocked'),
@@ -60,9 +67,31 @@ class Resource(models.Model):
         ("TEACHER", "Teacher"),
     )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name='resources')
+    # chapter facultatif : une ressource peut exister hors cours (partage autonome).
+    chapter = models.ForeignKey(
+        Chapter, on_delete=models.CASCADE, related_name='resources', null=True, blank=True
+    )
+    # Classe cible d'une ressource AUTONOME (sans chapitre). Pour une ressource de
+    # chapitre, la classe vient de chapter.course.classroom. classroom NULL = école entière.
+    classroom = models.ForeignKey(
+        Classroom, on_delete=models.CASCADE, related_name='resources', null=True, blank=True
+    )
+    # Auteur (créateur) : permet au prof de lister/gérer ses ressources autonomes.
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='authored_resources',
+        null=True,
+        blank=True,
+    )
     title = models.CharField(max_length=200)
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default="OTHER",
+        help_text="Taxonomie pédagogique : annales, corrigé, notes, approfondissement.",
+    )
     url = models.CharField(max_length=500, blank=True)
     size_bytes = models.BigIntegerField(null=True, blank=True)
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='LOCKED')

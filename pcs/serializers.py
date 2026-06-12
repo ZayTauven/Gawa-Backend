@@ -1,4 +1,7 @@
 from rest_framework import serializers
+
+from gawa_core.permissions import ROLE_PARENT, ROLE_STUDENT
+
 from .models import Course, Chapter, Resource
 
 ALLOWED_AI_CLASSES = {
@@ -17,8 +20,11 @@ class ResourceSerializer(serializers.ModelSerializer):
             "id",
             "chapter",
             "chapter_title",
+            "classroom",
+            "author",
             "title",
             "type",
+            "category",
             "url",
             "size_bytes",
             "status",
@@ -30,7 +36,7 @@ class ResourceSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["created_at", "updated_at", "chapter_title"]
+        read_only_fields = ["created_at", "updated_at", "chapter_title", "author"]
 
     def validate_target_audiences(self, value):
         if not isinstance(value, list):
@@ -85,8 +91,32 @@ class ResourceSerializer(serializers.ModelSerializer):
 
 
 class ChapterSerializer(serializers.ModelSerializer):
-    resources = ResourceSerializer(many=True, read_only=True)
+    resources = serializers.SerializerMethodField()
     course_title = serializers.CharField(source="course.title", read_only=True)
+
+    def get_resources(self, obj):
+        """Ressources imbriquées filtrées selon le rôle (sécurité côté serveur).
+
+        Élève / parent ne voient que les ressources publiées (UNLOCKED) destinées à
+        leur audience ; les autres rôles voient tout. Le cloisonnement par classe est
+        déjà assuré au niveau du queryset des chapitres.
+        """
+        request = self.context.get("request")
+        role = getattr(getattr(request, "user", None), "role", None)
+        resources = list(obj.resources.all())
+
+        if role == ROLE_STUDENT:
+            resources = [
+                r for r in resources
+                if r.status == "UNLOCKED" and "STUDENT" in (r.target_audiences or [])
+            ]
+        elif role == ROLE_PARENT:
+            resources = [
+                r for r in resources
+                if r.status == "UNLOCKED" and "PARENT" in (r.target_audiences or [])
+            ]
+
+        return ResourceSerializer(resources, many=True, context=self.context).data
 
     class Meta:
         model = Chapter
@@ -101,7 +131,7 @@ class ChapterSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["course_title", "resources", "created_at", "updated_at"]
+        read_only_fields = ["course_title", "created_at", "updated_at"]
 
 
 class CourseSerializer(serializers.ModelSerializer):
